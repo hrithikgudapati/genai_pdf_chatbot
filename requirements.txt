@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+transformers
+langchain
+langchain-community
+langchain-huggingface
+sentence-transformers
+faiss-cpu
+PyPDF2
