@@ -1,34 +1,28 @@
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from langchain.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
 from transformers import pipeline
 
 # --------------- Setup ---------------
 app = FastAPI()
 
-# Load embedding model
-embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# Load lightweight model (works on Render free)
+qa_pipeline = pipeline("text2text-generation", model="google/flan-t5-small", max_new_tokens=256)
 
-# Load FAISS index
-db = FAISS.load_local("faiss_index", embedding_model, allow_dangerous_deserialization=True)
-
-# Load smaller, fast model
-hf_pipeline = pipeline("text2text-generation", model="google/flan-t5-small", max_new_tokens=256)
-llm = HuggingFacePipeline(pipeline=hf_pipeline)
-
-# QA chain
-qa = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever(), chain_type="stuff")
-
+# Static preloaded summary from PDFs (you can enhance later)
+pdf_summary_text = """
+This collection of PDFs discusses redemption through the blood of Jesus Christ,
+the biblical concept of grace, and deliverance from spiritual slavery.
+It explores Ephesians 1:7, Deuteronomy 28, and other core scriptures.
+"""
 
 # --------------- Request Schema ---------------
 class Question(BaseModel):
     query: str
 
-
 # --------------- API Route ---------------
 @app.post("/ask")
 async def ask_question(payload: Question):
-    answer = qa.invoke(payload.query)
-    return {"question": payload.query, "answer": answer}
+    query = payload.query
+    prompt = f"Based on the following notes:\n{pdf_summary_text}\nAnswer this: {query}"
+    result = qa_pipeline(prompt)[0]['generated_text']
+    return {"question": query, "answer": result}
